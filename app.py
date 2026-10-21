@@ -17,7 +17,11 @@ app = Flask(__name__)
 # Maintain recent analysis history (last 20 analyses in memory)
 RECENT_HISTORY = deque(maxlen=20)
 
-ABBREVIATIONS = {'dr', 'mr', 'mrs', 'ms', 'prof', 'sr', 'jr', 'vs', 'etc', 'e.g', 'i.e', 'u.s', 'sq', 'km'}
+ABBREVIATIONS = {
+    'dr', 'mr', 'mrs', 'ms', 'prof', 'sr', 'jr', 'vs', 'etc', 'e.g', 'i.e', 'u.s', 'sq', 'km',
+    'approx', 'fig', 'al', 'inc', 'ltd', 'corp', 'dept', 'no', 'univ', 'est', 'st',
+    'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'
+}
 
 def split_sentences(text: str) -> list:
     text = (text or "").strip()
@@ -26,11 +30,13 @@ def split_sentences(text: str) -> list:
 
     # Protect decimals like 3.14 or numbers like $10.50
     text = re.sub(r'(\d+)\.(\d+)', r'\1<DECIMAL>\2', text)
-    # Protect common abbreviations
-    for abbr in ABBREVIATIONS:
-        text = re.sub(rf'(?i)\b({abbr})\.', r'\1<DOT>', text)
-    # Protect numbered lists at start of line
+    # Protect common abbreviations using case-insensitive escaped matching
+    for abbr in sorted(ABBREVIATIONS, key=len, reverse=True):
+        text = re.sub(rf'(?i)\b{re.escape(abbr)}\.', r'\g<0><DOT>', text)
+        text = text.replace('.<DOT>', '<DOT>')
+    # Protect numbered list prefixes at start of line OR directly following a sentence boundary
     text = re.sub(r'(?m)^(\d+)\.\s+', r'\1<NUMDOT> ', text)
+    text = re.sub(r'(?<=[.!?])\s+(\d{1,3})\.\s+', r' \1<NUMDOT> ', text)
 
     # Split on sentence boundaries: newlines or [.!?] followed by whitespace
     raw_splits = re.split(r'(?:[\r\n]+|(?<=[.!?])\s+)', text)
@@ -179,16 +185,34 @@ def chat():
     if evidence.get("evidence"):
         verif = verify_claim(question, evidence)
         src = evidence.get("source") or "Reference source"
+        expl = verif.get("explanation") or ""
+        # Avoid duplicating source citation if explanation already includes it
+        if "Source:" in expl:
+            reply = f"Claim status: {verif.get('status')} ({expl})"
+        else:
+            reply = f"Claim status: {verif.get('status')} ({expl}). Source: {src}."
         return jsonify({
-            "reply": f"Claim status: {verif.get('status')} ({verif.get('explanation')}). Source: {src}."
+            "status": verif.get("status"),
+            "confidence": verif.get("confidence", 0.0),
+            "explanation": expl,
+            "source": src,
+            "reply": reply
         })
     return jsonify({
+        "status": "Unverified",
+        "confidence": 0.0,
         "reply": "No definitive source evidence was found for that query. Please check spelling or query Wikipedia directly."
     })
 
 @app.get("/api/history")
 def history():
     return jsonify({"history": list(RECENT_HISTORY)})
+
+@app.post("/api/history/clear")
+@app.delete("/api/history")
+def clear_history():
+    RECENT_HISTORY.clear()
+    return jsonify({"ok": True, "message": "History cleared successfully."})
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=False)

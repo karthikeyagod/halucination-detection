@@ -132,7 +132,11 @@ def _queries(claim: str) -> List[str]:
         clean_subj = re.sub(r"^(the|a|an|all|every|one)\s+", "", subject, flags=re.IGNORECASE).strip()
         if len(clean_subj) > 1:
             # Add singular form first for plural nouns (e.g. Bats -> Bat, Dolphins -> Dolphin)
-            if clean_subj.endswith("s") and len(clean_subj) >= 4 and clean_subj.lower() not in {"css", "mars", "paris", "venus", "species", "air"}:
+            # Avoid stripping non-plural endings (e.g. Address, Glass, Cactus, Basis, Atlas)
+            non_plural_endings = ("ss", "us", "is", "as")
+            if (clean_subj.endswith("s") and len(clean_subj) >= 4
+                    and not any(clean_subj.lower().endswith(end) for end in non_plural_endings)
+                    and clean_subj.lower() not in {"css", "mars", "paris", "venus", "species", "air"}):
                 singular = re.sub(r"ies$", "y", clean_subj)
                 if singular == clean_subj:
                     singular = clean_subj[:-1]
@@ -165,7 +169,8 @@ def _queries(claim: str) -> List[str]:
                 if clean_subj:
                     queries.append(f"{clean_subj} {main_obj}")
                 queries.append(main_obj)
-                if main_obj.endswith("s") and len(main_obj) > 3:
+                if (main_obj.endswith("s") and len(main_obj) > 3
+                        and not any(main_obj.lower().endswith(end) for end in ("ss", "us", "is", "as"))):
                     queries.append(main_obj[:-1])
 
     # 2. Number entity pattern (e.g. "number 21" -> "21 (number)")
@@ -203,7 +208,7 @@ def _queries(claim: str) -> List[str]:
     elif re.search(r"\bram\b", q_lower) and "memory" in q_lower:
         queries.insert(0, "Random-access memory")
 
-    # 5. Capitalized Named Entities (proper nouns)
+    # 6. Capitalized Named Entities (proper nouns)
     entities = re.findall(r"\b[A-Z][a-z0-9]+(?:\s+[A-Z][a-z0-9]+)*\b", q)
     for ent in entities:
         ent = ent.strip()
@@ -211,12 +216,12 @@ def _queries(claim: str) -> List[str]:
             if ent not in queries:
                 queries.append(ent)
 
-    # 6. Compact keyword query
+    # 7. Compact keyword query
     words = [w for w in re.findall(r"[A-Za-z0-9'-]+", q) if w.lower() not in STOP]
     if len(words) >= 2:
         queries.append(" ".join(words[:6]))
 
-    # 7. Full query
+    # 8. Full query
     queries.append(q)
 
     # Deduplicate while preserving order

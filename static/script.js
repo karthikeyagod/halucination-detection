@@ -58,7 +58,9 @@ function renderResult(item) {
     ? `<a class="source" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.source || "Open source")} ↗</a>`
     : (item.source ? `<div class="detail"><b>Source:</b> ${escapeHtml(item.source)}</div>` : `<div class="detail">No specific source citation available.</div>`);
 
-  const confidenceBadge = item.confidence ? `<span class="confidence">Confidence: ${(item.confidence * 100).toFixed(0)}%</span>` : "";
+  const confidenceBadge = (status !== "Unverified" && typeof item.confidence === "number" && item.confidence > 0)
+    ? `<span class="confidence">Confidence: ${(item.confidence * 100).toFixed(0)}%</span>`
+    : "";
   const evidence = item.evidence
     ? `<div class="evidence"><b>Retrieved Evidence:</b><br>${escapeHtml(item.evidence.slice(0, 1500))}${item.evidence.length > 1500 ? "…" : ""}</div>`
     : "";
@@ -143,22 +145,81 @@ button.addEventListener("click", async () => {
   }
 });
 
-// Copy button
-$("copy-btn").addEventListener("click", async () => {
+// Copy button with in-place feedback
+const copyBtn = $("copy-btn");
+copyBtn.addEventListener("click", async () => {
   const text = $("corrected-paragraph").value;
   if (!text) {
-    message.textContent = "There is no corrected paragraph to copy yet.";
+    copyBtn.textContent = "No text to copy";
+    setTimeout(() => { copyBtn.textContent = "Copy Paragraph"; }, 1500);
     return;
   }
   try {
     await navigator.clipboard.writeText(text);
-    message.textContent = "Corrected paragraph copied to clipboard.";
   } catch {
     $("corrected-paragraph").select();
     document.execCommand("copy");
-    message.textContent = "Copied to clipboard.";
   }
+  copyBtn.textContent = "✓ Copied!";
+  setTimeout(() => { copyBtn.textContent = "Copy Paragraph"; }, 1800);
 });
+
+// Quick claim / chat verification
+const chatInput = $("chat-input");
+const chatBtn = $("chat-btn");
+const chatResult = $("chat-result");
+
+async function handleQuickVerify() {
+  const msg = (chatInput?.value || "").trim();
+  if (!msg) {
+    if (chatInput) chatInput.focus();
+    return;
+  }
+  chatBtn.disabled = true;
+  chatBtn.textContent = "Verifying…";
+  chatResult.style.display = "block";
+  chatResult.innerHTML = '<div class="detail">Querying knowledge sources and evaluating claim…</div>';
+
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: msg })
+    });
+    const data = await response.json();
+    const status = ["Supported", "Contradicted", "Unverified"].includes(data.status) ? data.status : "Unverified";
+    const confidenceBadge = (status !== "Unverified" && typeof data.confidence === "number" && data.confidence > 0)
+      ? `<span class="confidence">Confidence: ${(data.confidence * 100).toFixed(0)}%</span>`
+      : "";
+
+    chatResult.innerHTML = `
+      <div class="result-head">
+        <div class="claim">${escapeHtml(msg)}</div>
+        <div class="badges">
+          ${confidenceBadge}
+          <span class="badge ${status}">${status}</span>
+        </div>
+      </div>
+      <div class="detail">${escapeHtml(data.explanation || data.reply || "")}</div>
+      ${data.source ? `<div class="detail" style="margin-top:6px;"><b>Source:</b> ${escapeHtml(data.source)}</div>` : ""}
+    `;
+  } catch (err) {
+    chatResult.innerHTML = `<div class="detail" style="color:var(--red);">Verification request failed: ${escapeHtml(err.message)}</div>`;
+  } finally {
+    chatBtn.disabled = false;
+    chatBtn.textContent = "Verify Claim →";
+  }
+}
+
+if (chatBtn && chatInput) {
+  chatBtn.addEventListener("click", handleQuickVerify);
+  chatInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleQuickVerify();
+    }
+  });
+}
 
 // History loader
 async function loadHistory() {
@@ -174,10 +235,10 @@ async function loadHistory() {
     }
 
     historyContainer.className = "history-list";
-    historyContainer.innerHTML = history.map((item, idx) => `
+    historyContainer.innerHTML = history.map((item) => `
       <div class="history-item">
         <div class="history-meta">
-          <small>${new Date(item.timestamp).toLocaleTimeString()} · ${item.total_sentences} sentences</small>
+          <small>${new Date(item.timestamp).toLocaleTimeString()} · ${item.total_sentences} ${item.total_sentences === 1 ? "sentence" : "sentences"}</small>
           <span class="counts-badge">
             <span style="color:var(--green)">✓ ${item.counts?.Supported || 0}</span>
             <span style="color:var(--red)">✕ ${item.counts?.Contradicted || 0}</span>
@@ -192,8 +253,13 @@ async function loadHistory() {
   }
 }
 
-// Clear history button
-$("clear-history-btn").addEventListener("click", () => {
+// Clear history button with backend sync
+$("clear-history-btn").addEventListener("click", async () => {
+  try {
+    await fetch("/api/history/clear", { method: "POST" });
+  } catch {
+    // Continue even if network error
+  }
   historyContainer.className = "history-list empty";
   historyContainer.innerHTML = "History cleared.";
 });

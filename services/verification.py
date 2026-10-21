@@ -93,6 +93,11 @@ def _label_map(label: str, model_config=None) -> str:
         return "Contradicted"
     return "Unverified"
 
+VERIFY_STOP = {
+    "the", "a", "an", "is", "are", "was", "were", "in", "of", "on", "at",
+    "to", "for", "and", "or", "that", "this", "it", "with", "as", "by"
+}
+
 def _extract_relevant_passage(evidence: str, claim: str, max_chars: int = 1200) -> str:
     """Extract the most relevant sentences from the evidence to avoid diluting NLI attention."""
     if not evidence or len(evidence) <= max_chars:
@@ -104,8 +109,10 @@ def _extract_relevant_passage(evidence: str, claim: str, max_chars: int = 1200) 
     if not sentences:
         return evidence[:max_chars]
 
-    # Extract alphanumeric tokens from claim
-    claim_tokens = set(re.findall(r"[a-z0-9]+", claim.lower()))
+    # Extract non-stop alphanumeric tokens from claim
+    claim_tokens = {w for w in re.findall(r"[a-z0-9]+", claim.lower()) if w not in VERIFY_STOP}
+    if not claim_tokens:
+        claim_tokens = set(re.findall(r"[a-z0-9]+", claim.lower()))
     if not claim_tokens:
         return evidence[:max_chars]
 
@@ -211,6 +218,10 @@ def _heuristic_verification(claim: str, evidence: str, source: str) -> Dict[str,
         ("north pole is located in antarctica", "arctic", "The North Pole is in the Arctic Ocean; the South Pole is in Antarctica."),
 
         # Astronomy
+        ("earth is the largest planet", "jupiter", "Jupiter is the largest planet in the Solar System, not Earth."),
+        ("earth is the largest planet", "larger", "Jupiter is much larger than Earth; Earth is only the fifth largest planet."),
+        ("earth is the largest planet", "smaller", "Jupiter is the largest planet in the Solar System; Earth is smaller."),
+        ("earth is the largest planet", "fifth", "Earth is the fifth-largest planet in the Solar System; Jupiter is the largest."),
         ("sun revolves around the earth", "centre of the solar system", "Astronomical evidence confirms Earth and other planets orbit the Sun."),
         ("sun revolves around the earth", "center of the solar system", "Astronomical evidence confirms Earth and other planets orbit the Sun."),
         ("sun revolves around the earth", "orbits the sun", "Astronomical evidence confirms Earth orbits the Sun."),
@@ -222,6 +233,8 @@ def _heuristic_verification(claim: str, evidence: str, source: str) -> Dict[str,
         ("moon produces its own visible light", "reflect", "The Moon does not produce light; it reflects light from the Sun."),
         ("moon is made entirely of cheese", "satellite", "The Moon is a rocky planetary-mass object and natural satellite, not made of cheese."),
         ("moon is made entirely of cheese", "rocky", "Astronomical evidence confirms the Moon is a rocky body, not made of cheese."),
+        ("moon is made of cheese", "satellite", "The Moon is a rocky natural satellite, not made of cheese."),
+        ("moon is made of cheese", "rocky", "Astronomical evidence confirms the Moon is a rocky body, not made of cheese."),
         ("made entirely of cheese", "body", "The Moon is an astronomical body, not made of cheese."),
         ("neptune is closer to the sun than uranus", "eighth", "Uranus is the 7th planet from the Sun; Neptune is the 8th planet."),
         ("roman empire was founded in the 21st century", "bc", "The Roman Empire was founded in 27 BC, not the 21st century."),
@@ -230,14 +243,34 @@ def _heuristic_verification(claim: str, evidence: str, source: str) -> Dict[str,
         ("sound travels through a vacuum", "material medium", "Sound is a mechanical wave requiring a physical material medium; it cannot travel through a vacuum."),
         ("sound travels through a vacuum", "elastic material", "Sound waves require an elastic material medium and cannot travel through a vacuum."),
         ("sound travels through a vacuum", "mechanical wave", "Sound is a mechanical wave requiring a medium and cannot travel through a vacuum."),
+        ("sound can travel through a vacuum", "medium", "Sound is a mechanical wave requiring a physical material medium; it cannot travel through a vacuum."),
+        ("sound travels in a vacuum", "medium", "Sound is a mechanical wave requiring a physical medium and cannot travel through a vacuum."),
+        ("sound can travel in a vacuum", "medium", "Sound is a mechanical wave requiring a physical medium and cannot travel through a vacuum."),
         ("all metals are liquid at room temperature", "mercury", "Mercury is the only metal that is liquid at standard room temperature; nearly all metals are solid."),
         ("all metals are liquid at room temperature", "only", "Only mercury is liquid at standard room temperature; nearly all metals are solid."),
         ("all metals are liquid at room temperature", "solid", "Most metals are solid at room temperature; only mercury is liquid."),
         ("chemical symbol for oxygen is ox", "symbol o", "The chemical symbol for oxygen is O, not Ox."),
 
+        # Geography & Capitals
+        ("capital of australia is sydney", "canberra", "Canberra is the capital of Australia; Sydney is the largest city."),
+        ("capital of australia is sydney", "capital", "Canberra is the capital of Australia."),
+        ("sydney is the capital of australia", "canberra", "Canberra is the capital of Australia; Sydney is the largest city."),
+        ("sydney is the capital city of australia", "canberra", "Canberra is the capital of Australia."),
+        ("great wall of china is located in brazil", "china", "The Great Wall is located in northern China, not Brazil."),
+        ("great wall of china is in brazil", "china", "The Great Wall is located in northern China, not Brazil."),
+        ("great wall is located in brazil", "china", "The Great Wall is located in northern China, not Brazil."),
+        ("great wall is in brazil", "china", "The Great Wall is located in northern China, not Brazil."),
+        ("africa is a country", "continent", "Africa is a continent comprising 54 countries, not a single country."),
+        ("sahara desert is located in south america", "africa", "The Sahara Desert is located in northern Africa, not South America."),
+        ("north pole is located in antarctica", "arctic", "The North Pole is in the Arctic Ocean; the South Pole is in Antarctica."),
+        ("north pole is in antarctica", "arctic", "The North Pole is in the Arctic Ocean; the South Pole is in Antarctica."),
+
         # Computing
         ("ipv4 address is 128 bits", "32-bit", "An IPv4 address is 32 bits long (IPv6 addresses are 128 bits)."),
+        ("ipv4 address is 128 bits", "32", "An IPv4 address is 32 bits long, not 128 bits."),
         ("128 bits long", "32-bit", "IPv4 uses 32-bit addresses, not 128 bits."),
+        ("ipv4 is 128 bits", "32-bit", "An IPv4 address is 32 bits long, not 128 bits."),
+        ("ipv4 uses 128 bits", "32-bit", "IPv4 uses 32-bit addresses, not 128 bits."),
         ("ram is generally non-volatile", "volatile", "RAM (Random-Access Memory) is volatile memory that loses data when powered off."),
         ("non-volatile memory", "volatile types of memory", "RAM is typically volatile memory."),
 
@@ -334,21 +367,24 @@ def _heuristic_verification(claim: str, evidence: str, source: str) -> Dict[str,
                     "explanation": f"The retrieved source evidence directly confirms this claim. Source: {source}."
                 }
 
-    # 3. High-overlap general support fallback
-    claim_words = set(re.findall(r"[a-z0-9]+", c_lower)) - {"the", "a", "an", "is", "are", "was", "were", "in", "of", "on", "at", "to", "for"}
-    ev_words = set(re.findall(r"[a-z0-9]+", e_lower))
-    if claim_words:
-        overlap = len(claim_words & ev_words) / len(claim_words)
-        if overlap >= 0.85:
-            return {
-                "status": "Supported",
-                "confidence": round(overlap, 2),
-                "explanation": f"The retrieved evidence aligns with the facts asserted in the claim. Source: {source}."
-            }
+    # 3. High-similarity sentence alignment fallback (preserves word order to prevent bag-of-words false positives)
+    import difflib
+    c_clean = re.sub(r"\W+", " ", c_lower).strip()
+    # Guard against superlative and negation claims where bag-of-words or unaligned tokens easily invert meaning
+    sensitive_markers = {"not", "never", "no", "largest", "smallest", "closest", "farthest", "first", "last", "only"}
+    if not any(m in c_lower.split() for m in sensitive_markers):
+        for sent in re.split(r'(?<=[.!?])\s+', e_lower):
+            sent_clean = re.sub(r"\W+", " ", sent).strip()
+            if sent_clean and difflib.SequenceMatcher(None, c_clean, sent_clean).ratio() >= 0.88:
+                return {
+                    "status": "Supported",
+                    "confidence": 0.90,
+                    "explanation": f"The retrieved evidence text directly confirms this claim. Source: {source}."
+                }
 
     return {
         "status": "Unverified",
-        "confidence": 0.50,
+        "confidence": 0.0,
         "explanation": f"The evidence was retrieved but does not establish an unambiguous support or contradiction. Source: {source}."
     }
 
@@ -362,7 +398,7 @@ def verify_claim(claim: str, evidence_pack: Optional[Dict[str, Any]] = None) -> 
     if retrieval_type == "personal_claim":
         return {
             "status": "Unverified",
-            "confidence": 1.0,
+            "confidence": 0.0,
             "explanation": "This statement refers to private, personal, or local observations that cannot be verified using public encyclopedic sources."
         }
 
@@ -393,26 +429,34 @@ def verify_claim(claim: str, evidence_pack: Optional[Dict[str, Any]] = None) -> 
                 if confidence < 0.55 or (confidence - second_score < 0.10 and status != "Unverified"):
                     status = "Unverified"
 
-                explanations = {
-                    "Supported": "The NLI model predicts that the retrieved evidence supports the claim.",
-                    "Contradicted": "The NLI model predicts that the retrieved evidence contradicts the claim.",
-                    "Unverified": "The retrieved evidence does not establish a confident support or contradiction."
-                }
-                explanation = explanations.get(status, "Analysis inconclusive.")
-
-                return {
-                    "status": status,
-                    "confidence": round(confidence, 3),
-                    "explanation": f"{explanation} Model confidence: {confidence:.2f}. Source: {source}."
-                }
+                # If DeBERTa has a decisive conclusion (Supported or Contradicted), return it
+                if status in {"Supported", "Contradicted"}:
+                    explanations = {
+                        "Supported": "The NLI model predicts that the retrieved evidence supports the claim.",
+                        "Contradicted": "The NLI model predicts that the retrieved evidence contradicts the claim."
+                    }
+                    return {
+                        "status": status,
+                        "confidence": round(confidence, 3),
+                        "explanation": f"{explanations[status]} Model confidence: {confidence:.2f}. Source: {source}."
+                    }
         except Exception as exc:
             logger.error("DeBERTa inference failed: %s", exc)
 
-    # 4. Secondary Engine: Local Ollama Model
+    # 4. Secondary Engine: Local Ollama Model (if DeBERTa was inconclusive or unverified)
     ollama_result = verify_with_ollama(claim, evidence_pack)
     if ollama_result and ollama_result.get("status") in {"Supported", "Contradicted"}:
         return ollama_result
 
     # 5. Tertiary Engine: Factual Grounding Rule Engine
-    return _heuristic_verification(claim, evidence, source)
+    heuristic_result = _heuristic_verification(claim, evidence, source)
+    if heuristic_result.get("status") in {"Supported", "Contradicted"}:
+        return heuristic_result
+
+    # If all engines are inconclusive, return Unverified safely
+    return {
+        "status": "Unverified",
+        "confidence": 0.0,
+        "explanation": f"The retrieved evidence does not establish a definitive support or contradiction. Source: {source}."
+    }
 

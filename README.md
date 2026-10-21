@@ -88,4 +88,5 @@ LLM_Hallucination_Framework/
 - `POST /api/analyze` — Analyzes a paragraph: `{"text": "Your text..."}`. Returns claim status, explanations, evidence citations, and corrected text.
 - `POST /api/chat` — Factual question / single-statement verification query.
 - `GET /api/history` — Returns recent session analysis summaries.
+- `POST /api/history/clear` — Clears stored session analysis history.
 
