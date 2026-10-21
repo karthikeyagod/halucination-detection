@@ -12,6 +12,48 @@
     "source_url": "https://science.nasa.gov/jupiter/"
   },
   {
+    "claim": "The Sun revolves around the Earth.",
+    "evidence": "Earth orbits the Sun at an average distance of 149.60 million km; the Sun does not revolve around the Earth.",
+    "source": "NASA Solar System Exploration — Sun",
+    "source_url": "https://science.nasa.gov/sun/"
+  },
+  {
+    "claim": "The capital of South Korea is Seoul.",
+    "evidence": "Seoul, officially Seoul Special Metropolitan City, is the capital and largest city of South Korea.",
+    "source": "Encyclopaedia Britannica — Seoul",
+    "source_url": "https://www.britannica.com/place/Seoul"
+  },
+  {
+    "claim": "The capital of South Korea is Busan.",
+    "evidence": "Seoul is the capital and largest city of South Korea. Busan is a port city and the second most populous city, not the capital.",
+    "source": "Encyclopaedia Britannica — Seoul",
+    "source_url": "https://www.britannica.com/place/Seoul"
+  },
+  {
+    "claim": "A standard piano has 88 keys.",
+    "evidence": "A standard modern piano has 88 keys: 52 white keys and 36 black keys.",
+    "source": "Encyclopaedia Britannica — Piano",
+    "source_url": "https://www.britannica.com/art/piano-musical-instrument"
+  },
+  {
+    "claim": "A standard piano has 100 keys.",
+    "evidence": "A standard modern piano has 88 keys, consisting of 52 white keys and 36 black keys.",
+    "source": "Encyclopaedia Britannica — Piano",
+    "source_url": "https://www.britannica.com/art/piano-musical-instrument"
+  },
+  {
+    "claim": "The chemical symbol for gold is Au.",
+    "evidence": "Gold is a chemical element with the chemical symbol Au (from Latin aurum) and atomic number 79.",
+    "source": "Encyclopaedia Britannica — Gold",
+    "source_url": "https://www.britannica.com/science/gold-chemical-element"
+  },
+  {
+    "claim": "The chemical symbol for gold is Ag.",
+    "evidence": "The chemical symbol for gold is Au (from Latin aurum). Ag is the chemical symbol for silver (from Latin argentum).",
+    "source": "Encyclopaedia Britannica — Gold",
+    "source_url": "https://www.britannica.com/science/gold-chemical-element"
+  },
+  {
     "claim": "Telangana became a state in India in 2014.",
     "evidence": "Telangana became the 29th state of India on 2 June 2014.",
     "source": "Encyclopaedia Britannica — Telangana",
@@ -34,5 +76,95 @@
     "evidence": "Human blood is naturally red due to hemoglobin, an iron-rich protein that binds oxygen in red blood cells.",
     "source": "Encyclopaedia Britannica — Blood",
     "source_url": "https://www.britannica.com/science/blood-biochemistry"
+  },
+  {
+    "claim": "India became independent in 1947.",
+    "evidence": "India achieved independence from British rule on 15 August 1947, following the Indian independence movement.",
+    "source": "Wikipedia — Independence Day (India)",
+    "source_url": "https://en.wikipedia.org/wiki/Independence_Day_(India)"
+  },
+  {
+    "claim": "India gained independence in 1947.",
+    "evidence": "India achieved independence from British rule on 15 August 1947, following the Indian independence movement.",
+    "source": "Wikipedia — Independence Day (India)",
+    "source_url": "https://en.wikipedia.org/wiki/Independence_Day_(India)"
+  },
+  {
+    "claim": "The boiling point of nitrogen is approximately -196°C at atmospheric pressure.",
+    "evidence": "Nitrogen has a boiling point of approximately -196 °C (77 K; -321 °F) at standard atmospheric pressure.",
+    "source": "Encyclopaedia Britannica — Nitrogen",
+    "source_url": "https://www.britannica.com/science/nitrogen"
+  },
+  {
+    "claim": "All planets in the Solar System have rings.",
+    "evidence": "Only the four giant planets in the Solar System (Jupiter, Saturn, Uranus, and Neptune) have ring systems. The four terrestrial planets (Mercury, Venus, Earth, and Mars) do not have rings.",
+    "source": "NASA Solar System Exploration — Planetary Rings",
+    "source_url": "https://science.nasa.gov/solar-system/planetary-rings/"
+  },
+  {
+    "claim": "The chemical formula for ammonia is NH3.",
+    "evidence": "Ammonia is an inorganic chemical compound composed of nitrogen and hydrogen with the chemical formula NH3.",
+    "source": "Encyclopaedia Britannica — Ammonia",
+    "source_url": "https://www.britannica.com/science/ammonia"
+  },
+  {
+    "claim": "The currency of Bangladesh is the taka.",
+    "evidence": "The Bangladeshi taka is the official currency of Bangladesh.",
+    "source": "Encyclopaedia Britannica — Bangladesh",
+    "source_url": "https://www.britannica.com/place/Bangladesh"
+  },
+  {
+    "claim": "A light-year measures distance rather than time.",
+    "evidence": "A light-year is a unit of astronomical distance, representing the distance that light travels in one Julian year, rather than a unit of time.",
+    "source": "Encyclopaedia Britannica — Light-year",
+    "source_url": "https://www.britannica.com/science/light-year"
+  },
+  {
+    "claim": "The human stomach produces hydrochloric acid.",
+    "evidence": "The human stomach produces gastric acid, primarily consisting of hydrochloric acid, which aids in digestion and protects against pathogens.",
+    "source": "Encyclopaedia Britannica — Stomach",
+    "source_url": "https://www.britannica.com/science/stomach"
+  },
+  {
+    "claim": "The capital of Portugal is Lisbon.",
+    "evidence": "Lisbon is the capital and largest city of Portugal.",
+    "source": "Encyclopaedia Britannica — Lisbon",
+    "source_url": "https://www.britannica.com/place/Lisbon"
+  },
+  {
+    "claim": "The square root of 225 is 15.",
+    "evidence": "In mathematics, the principal square root of 225 is 15, since 15 multiplied by 15 equals 225.",
+    "source": "Encyclopaedia Britannica — Square root",
+    "source_url": "https://www.britannica.com/science/square-root"
+  },
+  {
+    "claim": "Every species of penguin lives in the Arctic.",
+    "evidence": "Penguins live almost exclusively in the Southern Hemisphere, primarily in Antarctica and subantarctic islands. No species of penguin lives in the Arctic.",
+    "source": "Encyclopaedia Britannica — Penguin",
+    "source_url": "https://www.britannica.com/animal/penguin-bird"
+  },
+  {
+    "claim": "The chemical symbol for calcium is Ca.",
+    "evidence": "Calcium is a chemical element with the chemical symbol Ca and atomic number 20.",
+    "source": "Encyclopaedia Britannica — Calcium",
+    "source_url": "https://www.britannica.com/science/calcium"
+  },
+  {
+    "claim": "The first photograph of a black hole was released in 2019.",
+    "evidence": "The first direct photograph of a black hole and its shadow was captured by the Event Horizon Telescope and released on 10 April 2019, showing the supermassive black hole at the center of the galaxy Messier 87.",
+    "source": "NASA — Event Horizon Telescope Releases First Black Hole Image",
+    "source_url": "https://science.nasa.gov/astrophysics/focus-areas/black-holes/"
+  },
+  {
+    "claim": "The Nile River flows into the Mediterranean Sea.",
+    "evidence": "The Nile River flows northward through northeastern Africa and empties into the Mediterranean Sea.",
+    "source": "Encyclopaedia Britannica — Nile River",
+    "source_url": "https://www.britannica.com/place/Nile-River"
+  },
+  {
+    "claim": "The largest planet in the Solar System is Mercury.",
+    "evidence": "Jupiter is the largest planet in the Solar System. Mercury is the smallest planet in the Solar System.",
+    "source": "NASA Solar System Exploration — Jupiter",
+    "source_url": "https://science.nasa.gov/jupiter/"
   }
 ]

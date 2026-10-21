@@ -6,8 +6,14 @@ from collections import deque
 import re
 
 from services.evidence import retrieve_evidence
-from services.verification import verify_claim, model_status
-from services.correction import suggest_correction, validate_correction, build_corrected_paragraph
+from services.verification import (
+    verify_claim,
+    model_status,
+    SUPPORTED,
+    CONTRADICTED,
+    INSUFFICIENT_EVIDENCE
+)
+from services.correction import build_corrected_paragraph
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("app")
@@ -43,6 +49,7 @@ def split_sentences(text: str) -> list:
     sentences = []
     for s in raw_splits:
         s = s.replace('<DECIMAL>', '.').replace('<DOT>', '.').replace('<NUMDOT>', '.')
+        s = re.sub(r'^\d+[\.\)]\s*', '', s)
         s = re.sub(r'\s+', ' ', s).strip()
         if s:
             sentences.append(s)
@@ -52,39 +59,53 @@ def _process_single_sentence(idx: int, sentence: str) -> dict:
     try:
         evidence_pack = retrieve_evidence(sentence)
         verification = verify_claim(sentence, evidence_pack)
-        status = verification.get("status", "Unverified")
-        correction = ""
-        correction_validated = False
 
-        if status == "Contradicted":
-            correction = suggest_correction(sentence, evidence_pack)
-            if correction:
-                correction_validated = validate_correction(sentence, correction, evidence_pack)
+        verdict = verification.get("verdict", INSUFFICIENT_EVIDENCE)
+        confidence = verification.get("confidence", 0.0)
+        confidence_type = verification.get("confidence_type", "estimated")
+        explanation = verification.get("explanation", "")
+        evidence_items = verification.get("evidence", [])
+        correction = verification.get("correction")
+        source_title = verification.get("source_title", "")
+        source_url = verification.get("source_url", "")
+        passage = verification.get("passage", "")
 
         return {
             "id": idx + 1,
             "sentence": sentence,
-            "status": status,
-            "confidence": verification.get("confidence", 0.0),
-            "explanation": verification.get("explanation", ""),
-            "evidence": evidence_pack.get("evidence", ""),
-            "source": evidence_pack.get("source", ""),
-            "source_url": evidence_pack.get("source_url", ""),
-            "correction": correction if correction_validated else "",
-            "correction_validated": bool(correction_validated)
+            "claim": sentence,
+            "verdict": verdict,
+            "status": verdict,
+            "confidence": confidence,
+            "confidence_type": confidence_type,
+            "explanation": explanation,
+            "evidence": evidence_items,
+            "evidence_text": passage,
+            "source": source_title,
+            "source_title": source_title,
+            "source_url": source_url,
+            "passage": passage,
+            "correction": correction,
+            "correction_validated": bool(correction)
         }
     except Exception as exc:
         logger.exception("Analysis failed for sentence: %s. Error: %s", sentence, exc)
         return {
             "id": idx + 1,
             "sentence": sentence,
-            "status": "Unverified",
+            "claim": sentence,
+            "verdict": INSUFFICIENT_EVIDENCE,
+            "status": INSUFFICIENT_EVIDENCE,
             "confidence": 0.0,
+            "confidence_type": "estimated",
             "explanation": "Verification failed safely; no reliable conclusion was produced.",
-            "evidence": "",
+            "evidence": [],
+            "evidence_text": "",
             "source": "",
+            "source_title": "",
             "source_url": "",
-            "correction": "",
+            "passage": "",
+            "correction": None,
             "correction_validated": False
         }
 
@@ -101,6 +122,28 @@ def health():
         "time": datetime.now(timezone.utc).isoformat()
     })
 
+@app.post("/api/verify")
+def verify():
+    """Verify a single proposition directly and return standardized Section 8 response schema."""
+    data = request.get_json(silent=True) or request.form or {}
+    claim = (data.get("claim") or data.get("text") or "").strip()
+    if not claim:
+        return jsonify({"error": "Please provide a 'claim' to verify."}), 400
+
+    evidence_pack = retrieve_evidence(claim)
+    result = verify_claim(claim, evidence_pack)
+
+    response = {
+        "claim": result["claim"],
+        "verdict": result["verdict"],
+        "confidence": result["confidence"],
+        "confidence_type": result.get("confidence_type", "estimated"),
+        "explanation": result["explanation"],
+        "evidence": result["evidence"],
+        "correction": result["correction"]
+    }
+    return jsonify(response)
+
 @app.post("/api/analyze")
 def analyze():
     data = request.get_json(silent=True) or request.form or {}
@@ -116,7 +159,7 @@ def analyze():
     if len(sentences) > 30:
         return jsonify({"error": "Maximum 30 sentences per analysis allowed."}), 400
 
-    # Process sentences concurrently using a thread pool for fast parallel retrieval & inference
+    # Process sentences concurrently using a thread pool for parallel retrieval & inference
     results = [None] * len(sentences)
     max_workers = min(6, len(sentences))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -133,19 +176,29 @@ def analyze():
                 results[idx] = {
                     "id": idx + 1,
                     "sentence": sentences[idx],
-                    "status": "Unverified",
+                    "claim": sentences[idx],
+                    "verdict": INSUFFICIENT_EVIDENCE,
+                    "status": INSUFFICIENT_EVIDENCE,
+                    "confidence": 0.0,
                     "explanation": "Worker execution error.",
-                    "evidence": "",
+                    "evidence": [],
+                    "evidence_text": "",
                     "source": "",
+                    "source_title": "",
                     "source_url": "",
-                    "correction": "",
+                    "passage": "",
+                    "correction": None,
                     "correction_validated": False
                 }
 
     counts = {
-        "Supported": sum(1 for x in results if x and x["status"] == "Supported"),
-        "Contradicted": sum(1 for x in results if x and x["status"] == "Contradicted"),
-        "Unverified": sum(1 for x in results if x and x["status"] == "Unverified")
+        SUPPORTED: sum(1 for x in results if x and x.get("verdict") == SUPPORTED),
+        CONTRADICTED: sum(1 for x in results if x and x.get("verdict") == CONTRADICTED),
+        INSUFFICIENT_EVIDENCE: sum(1 for x in results if x and x.get("verdict") == INSUFFICIENT_EVIDENCE),
+        # Legacy UI aliases
+        "Supported": sum(1 for x in results if x and x.get("verdict") == SUPPORTED),
+        "Contradicted": sum(1 for x in results if x and x.get("verdict") == CONTRADICTED),
+        "Unverified": sum(1 for x in results if x and x.get("verdict") == INSUFFICIENT_EVIDENCE)
     }
     corrected_paragraph = build_corrected_paragraph(results)
 
@@ -156,9 +209,10 @@ def analyze():
         "summary": counts,
         "corrected_paragraph": corrected_paragraph,
         "total_sentences": len(results),
-        "supported_count": counts["Supported"],
-        "contradicted_count": counts["Contradicted"],
-        "unverified_count": counts["Unverified"]
+        "supported_count": counts[SUPPORTED],
+        "contradicted_count": counts[CONTRADICTED],
+        "insufficient_evidence_count": counts[INSUFFICIENT_EVIDENCE],
+        "unverified_count": counts[INSUFFICIENT_EVIDENCE]
     }
 
     # Store in recent history
@@ -176,32 +230,33 @@ def analyze():
 @app.post("/api/chat")
 def chat():
     data = request.get_json(silent=True) or {}
-    question = (data.get("message") or "").strip()
+    question = (data.get("message") or data.get("claim") or "").strip()
     if not question:
         return jsonify({"reply": "Ask a factual question or statement to verify."})
 
-    # Grounded response: verify the question/statement directly
     evidence = retrieve_evidence(question)
-    if evidence.get("evidence"):
-        verif = verify_claim(question, evidence)
-        src = evidence.get("source") or "Reference source"
-        expl = verif.get("explanation") or ""
-        # Avoid duplicating source citation if explanation already includes it
-        if "Source:" in expl:
-            reply = f"Claim status: {verif.get('status')} ({expl})"
-        else:
-            reply = f"Claim status: {verif.get('status')} ({expl}). Source: {src}."
-        return jsonify({
-            "status": verif.get("status"),
-            "confidence": verif.get("confidence", 0.0),
-            "explanation": expl,
-            "source": src,
-            "reply": reply
-        })
+    verif = verify_claim(question, evidence)
+    verdict = verif.get("verdict", INSUFFICIENT_EVIDENCE)
+    conf = verif.get("confidence", 0.0)
+    src = verif.get("source_title") or evidence.get("source") or "Reference source"
+    expl = verif.get("explanation") or ""
+    corr = verif.get("correction")
+
+    reply = f"Claim verdict: {verdict} ({expl})"
+
     return jsonify({
-        "status": "Unverified",
-        "confidence": 0.0,
-        "reply": "No definitive source evidence was found for that query. Please check spelling or query Wikipedia directly."
+        "claim": question,
+        "verdict": verdict,
+        "status": verdict,
+        "confidence": conf,
+        "confidence_type": verif.get("confidence_type", "estimated"),
+        "explanation": expl,
+        "evidence": verif.get("evidence", []),
+        "source": src,
+        "source_title": src,
+        "source_url": verif.get("source_url") or evidence.get("source_url", ""),
+        "correction": corr,
+        "reply": reply
     })
 
 @app.get("/api/history")
